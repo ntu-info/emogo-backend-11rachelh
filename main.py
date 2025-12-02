@@ -17,4 +17,3 @@ collection = db["items"]  # 可以改成你自己的 collection
 def export_data():
     data = list(collection.find({}, {"_id": 0})) 
     return JSONResponse(content=data)
-

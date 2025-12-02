@@ -10,14 +10,11 @@ MONGODB_URI = os.environ.get("MONGODB_URI")
 
 # 連線 MongoDB
 client = MongoClient(MONGODB_URI)
-db = client["emogo"]  # 可以改成你自己的 DB 名
-collection = db["records"]  # 可以改成你自己的 collection
+db = client["testdb"]  # 可以改成你自己的 DB 名
+collection = db["items"]  # 可以改成你自己的 collection
 
 @app.get("/")
-def home():
-    return {"message": "EmoGo backend is running"}
-
-@app.get("/export")
 def export_data():
-    data = list(collection.find({}, {"_id": 0}))  # _id 不要給助教看
+    data = list(collection.find({}, {"_id": 0})) 
     return JSONResponse(content=data)
+

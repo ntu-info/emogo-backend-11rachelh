@@ -1,6 +1,7 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from pymongo import MongoClient
+from fastapi.staticfiles import StaticFiles
 import os
 import csv
 from io import StringIO
@@ -12,15 +13,15 @@ MONGODB_URI = os.environ.get("MONGODB_URI")
 
 # 連線 MongoDB
 client = MongoClient(MONGODB_URI)
-db = client["testdb"]     # 你的資料庫
-collection = db["items"]  # 你的 collection
+db = client["testdb"]
+collection = db["items"]
 
 MEDIA_FOLDER = "media"  # media 資料夾位置
+app.mount("/media", StaticFiles(directory=MEDIA_FOLDER), name="media")
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
     data = list(collection.find({}, {"_id": 0}))
-
     html = """
     <html>
     <head>
@@ -55,7 +56,6 @@ def dashboard():
                 <th>Download</th>
             </tr>
     """
-
     for item in data:
         timestamp = item.get("timestamp", "")
         sentiment = item.get("sentiment", "")
@@ -99,13 +99,12 @@ def download_vlog(filename: str):
     path = os.path.join(MEDIA_FOLDER, filename)
     return FileResponse(path, media_type='video/mp4', filename=filename)
 
-# 下載整份文字資料 CSV
+# CSV 下載
 @app.get("/download/csv")
 def download_csv():
     data = list(collection.find({}, {"_id": 0}))
     si = StringIO()
     writer = csv.writer(si)
-    # CSV 標題
     writer.writerow(["timestamp", "sentiment", "lat", "lng", "snapshot", "vlog", "text"])
     for item in data:
         gps = item.get("gps", {})
@@ -119,12 +118,8 @@ def download_csv():
             item.get("text", "")
         ])
     si.seek(0)
-    return FileResponse(
-        path_or_file=StringIO(si.getvalue()),
-        media_type='text/csv',
-        filename="emogo_data.csv"
+    return StreamingResponse(
+        si,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=emogo_data.csv"}
     )
-
-# 提供 media 資料夾檔案給前端
-from fastapi.staticfiles import StaticFiles
-app.mount("/media", StaticFiles(directory=MEDIA_FOLDER), name="media")

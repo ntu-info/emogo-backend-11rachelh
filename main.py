@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from pymongo import MongoClient
 import os
 
@@ -13,12 +13,30 @@ client = MongoClient(MONGODB_URI)
 db = client["testdb"]     # 你的資料庫
 collection = db["items"]  # 你的 collection
 
+# media 資料夾路徑
+MEDIA_DIR = "media"
 
+# 提供照片下載
+@app.get("/download/snapshot/{filename}")
+def download_snapshot(filename: str):
+    path = os.path.join(MEDIA_DIR, filename)
+    if os.path.exists(path):
+        return FileResponse(path, media_type="image/jpeg", filename=filename)
+    return {"error": "File not found"}
+
+# 提供影片下載
+@app.get("/download/vlog/{filename}")
+def download_vlog(filename: str):
+    path = os.path.join(MEDIA_DIR, filename)
+    if os.path.exists(path):
+        return FileResponse(path, media_type="video/mp4", filename=filename)
+    return {"error": "File not found"}
+
+# Dashboard 頁面
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
     data = list(collection.find({}, {"_id": 0}))
 
-    # HTML 標頭
     html = """
     <html>
     <head>
@@ -53,7 +71,6 @@ def dashboard():
             </tr>
     """
 
-    # 將每筆資料插入表格
     for item in data:
         timestamp = item.get("timestamp", "")
         sentiment = item.get("sentiment", "")
@@ -64,27 +81,25 @@ def dashboard():
         vlog = item.get("vlog", "")
         text = item.get("text", "")
 
-        # HTML 轉義 + 顯示
         html += f"""
         <tr>
             <td>{timestamp}</td>
             <td>{sentiment}</td>
             <td>{lat}, {lng}</td>
             <td>
-                {'<img src="' + snapshot + '">' if snapshot else 'N/A'}
+                {'<img src="/download/snapshot/' + snapshot + '">' if snapshot else 'N/A'}
             </td>
             <td>
-                {'<video controls src="' + vlog + '"></video>' if vlog else 'N/A'}
+                {'<video controls src="/download/vlog/' + vlog + '"></video>' if vlog else 'N/A'}
             </td>
             <td>{text}</td>
             <td>
-                <a class="button" href="{snapshot}" download>Snapshot</a><br><br>
-                <a class="button" href="{vlog}" download>Vlog</a>
+                {'<a class="button" href="/download/snapshot/' + snapshot + '">Snapshot</a><br><br>' if snapshot else ''}
+                {'<a class="button" href="/download/vlog/' + vlog + '">Vlog</a>' if vlog else ''}
             </td>
         </tr>
         """
 
-    # HTML 結尾
     html += """
         </table>
     </body>
